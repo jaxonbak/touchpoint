@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Touchpoint</title>
+<style>
+:root{
+  --bg:#f6f5f3; --surface:#ffffff; --surface-2:#faf9f7; --border:#e4e1dc;
+  --text:#1c1b19; --muted:#79736c; --faint:#a8a29a;
+  --accent:#2f5d50; --accent-soft:#e7efec; --accent-text:#2f5d50;
+  --warn:#b4751f; --warn-soft:#fbf1e0;
+  --due:#a8412e; --due-soft:#fbe9e5;
+  --ok:#3a7a5e;
+  --radius:14px; --shadow:0 1px 2px rgba(28,27,25,.05),0 6px 18px rgba(28,27,25,.05);
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#15171a; --surface:#1d2024; --surface-2:#22262b; --border:#2e333a;
+    --text:#eceae6; --muted:#9aa1a9; --faint:#6b727a;
+    --accent:#6fbfa2; --accent-soft:#1f3b33; --accent-text:#8ed0b6;
+    --warn:#e0a95c; --warn-soft:#3a2f1c;
+    --due:#e08a76; --due-soft:#3d2621;
+    --ok:#6fbfa2;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.25);
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+  font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px 80px}
+
+/* header */
+header.top{border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:20}
+.top-in{max-width:1080px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:10px;margin-right:auto}
+.brand h1{font-size:19px;margin:0;letter-spacing:-.02em}
+.brand span{font-size:12.5px;color:var(--muted)}
+.btn{border:1px solid var(--border);background:var(--surface-2);color:var(--text);
+  padding:8px 13px;border-radius:9px;font-size:13.5px;font-weight:500;transition:.15s}
+.btn:hover{border-color:var(--faint)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+@media (prefers-color-scheme:dark){.btn.primary{color:#10231c}}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
+.btn.ghost:hover{background:var(--surface-2);color:var(--text)}
+.btn.sm{padding:5px 10px;font-size:12.5px;border-radius:7px}
+.btn.danger{color:var(--due);border-color:var(--border)}
+.sync{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);
+  padding:5px 10px;border:1px solid var(--border);border-radius:999px;background:var(--surface-2);white-space:nowrap}
+.sync .d{width:6px;height:6px;border-radius:50%;background:var(--ok);flex:none}
+.sync.busy .d{background:var(--warn)} .sync.bad .d{background:var(--due)} .sync.local .d{background:var(--faint)}
+@media (max-width:640px){ .sync .txt{display:none} }
+
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:22px 0 20px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+.stat .n{font-size:26px;font-weight:600;letter-spacing:-.03em;line-height:1.1}
+.stat .l{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-top:5px}
+.stat.alert .n{color:var(--warn)}
+.stat.soon .n{color:var(--ok)}
+
+/* section */
+.sec-head{display:flex;align-items:center;gap:10px;margin:26px 0 12px}
+.sec-head h2{font-size:14px;margin:0;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.sec-head .count{font-size:12px;color:var(--faint)}
+.sec-head .line{flex:1;height:1px;background:var(--border)}
+
+/* toolbar */
+.toolbar{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+.tb-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.search{flex:1;min-width:180px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--surface-2)}
+.search:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
+select.sel{padding:9px 10px;border:1px solid var(--border);border-radius:9px;background:var(--surface-2)}
+.tagcloud{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+.tagcloud:empty{display:none}
+.tag{border:1px solid var(--border);background:var(--surface-2);color:var(--muted);
+  padding:4px 10px;border-radius:999px;font-size:12.5px;font-weight:500;transition:.12s;white-space:nowrap}
+.tag:hover{color:var(--text);border-color:var(--faint)}
+.tag .ct{opacity:.55;margin-left:5px;font-variant-numeric:tabular-nums}
+.tag.on{background:var(--accent);border-color:var(--accent);color:#fff}
+@media (prefers-color-scheme:dark){.tag.on{color:#10231c}}
+.filterbar{display:flex;align-items:center;gap:10px;margin-top:11px;font-size:12.5px;color:var(--muted);flex-wrap:wrap}
+.filterbar:empty{display:none}
+
+/* cards */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:12px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:15px 16px 13px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:9px;position:relative}
+.card.due{border-color:color-mix(in srgb,var(--warn) 40%,var(--border))}
+.card-top{display:flex;align-items:flex-start;gap:10px}
+.avatar{width:36px;height:36px;border-radius:50%;background:var(--accent-soft);color:var(--accent-text);
+  display:grid;place-items:center;font-weight:600;font-size:13.5px;flex:none;letter-spacing:.02em}
+.nm{font-weight:600;letter-spacing:-.01em;line-height:1.25}
+.sub{font-size:12.5px;color:var(--muted);margin-top:1px}
+.card .tags{display:flex;flex-wrap:wrap;gap:5px}
+.chip{background:var(--surface-2);border:1px solid var(--border);color:var(--muted);
+  font-size:11.5px;padding:2px 8px;border-radius:999px;font-weight:500}
+.chip:hover{color:var(--text)}
+.statusline{display:flex;justify-content:space-between;gap:10px;align-items:center;
+  font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.statusline .left{display:flex;align-items:center;gap:7px;min-width:0}
+.statusline .cad{flex:none;color:var(--faint);font-size:11.5px}
+.dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--ok)}
+.dot.soon{background:var(--warn)} .dot.due{background:var(--warn)} .dot.off{background:var(--faint);opacity:.5}
+.s-due{color:var(--text);font-weight:600}
+.card-actions{display:flex;gap:6px;margin-top:2px;flex-wrap:wrap}
+.bday{position:absolute;top:12px;right:13px;font-size:11px;color:var(--warn);background:var(--warn-soft);
+  border-radius:999px;padding:2px 8px;font-weight:600}
+.empty{text-align:center;padding:46px 20px;color:var(--muted);background:var(--surface);
+  border:1px dashed var(--border);border-radius:var(--radius)}
+.empty h3{margin:0 0 6px;color:var(--text);font-size:16px}
+.empty p{margin:0 0 14px;font-size:13.5px}
+
+/* modal */
+.modal{position:fixed;inset:0;background:rgba(20,20,18,.5);backdrop-filter:blur(2px);
+  display:none;align-items:flex-start;justify-content:center;padding:36px 16px;z-index:50;overflow:auto}
+.modal.open{display:flex}
+.sheet{background:var(--surface);border:1px solid var(--border);border-radius:16px;
+  width:100%;max-width:540px;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden}
+.sheet header{display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid var(--border)}
+.sheet header h3{margin:0;font-size:16px;flex:1;letter-spacing:-.01em}
+.sheet .body{padding:18px}
+.sheet .foot{padding:14px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;
+  background:var(--surface-2);flex-wrap:wrap}
+label.f{display:block;margin-bottom:13px}
+label.f > span{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:600;letter-spacing:.03em}
+label.f input,label.f textarea,label.f select{width:100%;padding:9px 11px;border:1px solid var(--border);
+  border-radius:9px;background:var(--surface-2)}
+label.f input:focus,label.f textarea:focus,label.f select:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
+label.f textarea{resize:vertical;min-height:64px}
+.hint{font-size:11.5px;color:var(--faint);margin-top:4px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.detail-meta{display:grid;grid-template-columns:auto 1fr;gap:7px 14px;font-size:13.5px;margin-bottom:16px}
+.detail-meta dt{color:var(--muted);font-size:12.5px}
+.detail-meta dd{margin:0;word-break:break-word}
+.detail-meta a{color:var(--accent-text)}
+.log{list-style:none;margin:0;padding:0;border-top:1px solid var(--border)}
+.log li{padding:9px 0;border-bottom:1px solid var(--border);font-size:13.5px;display:flex;gap:10px}
+.log li time{color:var(--muted);font-size:12px;flex:none;width:78px;font-variant-numeric:tabular-nums;padding-top:1px}
+.log li .x{margin-left:auto;color:var(--faint);background:none;border:none;padding:0 2px;font-size:14px}
+.log li .x:hover{color:var(--due)}
+.toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,80px);background:var(--text);color:var(--bg);
+  padding:10px 18px;border-radius:999px;font-size:13.5px;font-weight:500;opacity:0;transition:.25s;z-index:80;pointer-events:none}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+@media (max-width:640px){
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .row2{grid-template-columns:1fr}
+  .brand span{display:none}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <div class="brand"><h1>Touchpoint</h1><span>people worth keeping up with</span></div>
+    <span class="sync local" id="syncPill"><span class="d"></span><span class="txt">This browser only</span></span>
+    <button class="btn ghost sm" id="btnAuth">Sign in to sync</button>
+    <button class="btn ghost sm" id="btnImport">Import</button>
+    <button class="btn ghost sm" id="btnExport">Export</button>
+    <button class="btn primary" id="btnAdd">+ Add person</button>
+    <input type="file" id="fileInput" accept="application/json,.json" hidden>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="stats">
+    <div class="stat"><div class="n" id="stPeople">0</div><div class="l">People</div></div>
+    <div class="stat alert"><div class="n" id="stDue">0</div><div class="l">Been a while</div></div>
+    <div class="stat soon"><div class="n" id="stSoon">0</div><div class="l">Seen this month</div></div>
+    <div class="stat"><div class="n" id="stTags">0</div><div class="l">Tags</div></div>
+  </div>
+
+  <div id="dueWrap" hidden>
+    <div class="sec-head"><h2>Been a while</h2><span class="count" id="dueCount"></span><div class="line"></div></div>
+    <div class="grid" id="dueGrid"></div>
+  </div>
+
+  <div class="sec-head"><h2>Everyone</h2><span class="count" id="allCount"></span><div class="line"></div></div>
+  <div class="toolbar">
+    <div class="tb-row">
+      <input class="search" id="search" type="search" placeholder="Search names, tags, notes...">
+      <select class="sel" id="sort">
+        <option value="due">Sort: longest since</option>
+        <option value="name">Sort: name</option>
+        <option value="recent">Sort: most recently seen</option>
+        <option value="added">Sort: recently added</option>
+      </select>
+    </div>
+    <div class="tagcloud" id="tagcloud"></div>
+    <div class="filterbar" id="filterbar"></div>
+  </div>
+  <div style="height:14px"></div>
+  <div class="grid" id="grid"></div>
+  <div id="emptyState"></div>
+</div>
+
+<div class="modal" id="formModal"><div class="sheet">
+  <header><h3 id="formTitle">Add person</h3><button class="btn ghost sm" data-close>Close</button></header>
+  <form id="personForm"><div class="body">
+    <label class="f"><span>NAME</span><input name="name" required autocomplete="off" placeholder="Sam Whitaker"></label>
+    <label class="f"><span>TAGS</span><input name="tags" autocomplete="off" placeholder="golf, finance program, minnesota">
+      <div class="hint">Comma separated. Click a tag anywhere to filter by it.</div></label>
+    <div class="row2">
+      <label class="f"><span>CHECK IN EVERY</span>
+        <select name="cadence">
+          <option value="7">1 week</option><option value="14">2 weeks</option>
+          <option value="30" selected>1 month</option><option value="60">2 months</option>
+          <option value="90">3 months</option><option value="180">6 months</option>
+          <option value="365">1 year</option><option value="0">Don't surface</option>
+        </select></label>
+      <label class="f"><span>LAST TIME TOGETHER</span><input type="date" name="lastContact">
+        <div class="hint">Blank if you can't remember.</div></label>
+    </div>
+    <div class="row2">
+      <label class="f"><span>PHONE</span><input name="phone" autocomplete="off" placeholder="(555) 867-5309"></label>
+      <label class="f"><span>EMAIL</span><input name="email" autocomplete="off" placeholder="sam@email.com"></label>
+    </div>
+    <label class="f"><span>LINK</span><input name="link" autocomplete="off" placeholder="linkedin.com/in/..."></label>
+    <div class="row2">
+      <label class="f"><span>BIRTHDAY</span><input type="date" name="birthday"></label>
+      <label class="f"><span>FROM / WHERE YOU MET</span><input name="met" autocomplete="off" placeholder="BYU finance program"></label>
+    </div>
+    <label class="f"><span>NOTES</span><textarea name="notes" placeholder="Anything worth remembering."></textarea></label>
+  </div>
+  <div class="foot">
+    <button type="button" class="btn danger" id="btnDelete" hidden>Delete</button>
+    <span style="flex:1"></span>
+    <button type="button" class="btn" data-close>Cancel</button>
+    <button type="submit" class="btn primary">Save</button>
+  </div></form>
+</div></div>
+
+<div class="modal" id="logModal"><div class="sheet" style="max-width:420px">
+  <header><h3>We caught up</h3><button class="btn ghost sm" data-close>Close</button></header>
+  <form id="logForm"><div class="body">
+    <p style="margin:0 0 14px;color:var(--muted);font-size:13.5px" id="logWho"></p>
+    <div class="row2">
+      <label class="f"><span>WHEN</span><input type="date" name="date" required></label>
+      <label class="f"><span>WHAT</span><select name="kind">
+        <option>Hung out</option><option>Called</option><option>Texted</option>
+        <option>Golfed</option><option>Meal</option><option>Other</option></select></label>
+    </div>
+    <label class="f"><span>NOTE (OPTIONAL)</span><textarea name="note" placeholder="Played 18 at Hobble Creek, he's interviewing at..."></textarea></label>
+  </div>
+  <div class="foot"><button type="button" class="btn" data-close>Cancel</button>
+    <button type="submit" class="btn primary">Save it</button></div></form>
+</div></div>
+
+<div class="modal" id="detailModal"><div class="sheet">
+  <header><h3 id="dName"></h3><button class="btn ghost sm" data-close>Close</button></header>
+  <div class="body" id="dBody"></div>
+  <div class="foot">
+    <button class="btn" id="dEdit">Edit</button>
+    <span style="flex:1"></span>
+    <button class="btn primary" id="dLog">We caught up</button>
+  </div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+<script>
+const FB="https://www.gstatic.com/firebasejs/12.19.0/";
+const firebaseConfig = {
+  apiKey: "AIzaSyD476wubE39Wgy3jNN75Nqykf-6KtlEcSA",
+  authDomain: "touchpoint-9e6e2.firebaseapp.com",
+  projectId: "touchpoint-9e6e2",
+  storageBucket: "touchpoint-9e6e2.firebasestorage.app",
+  messagingSenderId: "1032809013271",
+  appId: "1:1032809013271:web:14ba8bb24a9454cfdffc52"
+};
+
+(function(){
+"use strict";
+const KEY="touchpoint-v1";
+const $=s=>document.querySelector(s);
+const el=(t,c,x)=>{const n=document.createElement(t);if(c)n.className=c;if(x!=null)n.textContent=x;return n;};
+
+/* ---------- state ---------- */
+let data={version:1,people:[]};
+let activeTags=[], matchAll=false, query="", sortBy="due";
+let editingId=null, logId=null, deleteArmed=false;
+
+function load(){
+  try{const raw=localStorage.getItem(KEY);if(raw){const p=JSON.parse(raw);if(p&&Array.isArray(p.people))data=p;}}
+  catch(e){console.warn("load failed",e);}
+}
+function save(){
+  if(!applyingRemote) data.updatedAt=Date.now();
+  try{localStorage.setItem(KEY,JSON.stringify(data));}
+  catch(e){toast("Could not save — storage blocked");}
+  if(!applyingRemote) cloudPush();
+}
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+
+/* ---------- dates ---------- */
+function todayStr(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+const ms=s=>Date.parse(s+"T00:00:00Z");
+function daysSince(s){if(!s)return null;return Math.round((ms(todayStr())-ms(s))/86400000);}
+function fmt(s){if(!s)return"";const d=new Date(ms(s));
+  return d.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric",timeZone:"UTC"});}
+function fmtShort(s){if(!s)return"";const d=new Date(ms(s));
+  return d.toLocaleDateString(undefined,{month:"short",day:"numeric",timeZone:"UTC"});}
+function span(n){
+  if(n<=0)return"today"; if(n===1)return"a day";
+  if(n<14)return n+" days";
+  if(n<60)return Math.round(n/7)+" weeks";
+  if(n<365)return Math.round(n/30)+" months";
+  const y=(n/365).toFixed(1).replace(".0","");return y+(y==="1"?" year":" years");
+}
+function ago(n){
+  if(n===null)return"never";
+  if(n<=0)return"today"; if(n===1)return"yesterday";
+  return span(n)+" ago";
+}
+function daysToBirthday(b){
+  if(!b)return null;
+  const d=new Date(ms(b)), now=new Date(ms(todayStr()));
+  let next=Date.UTC(now.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate());
+  if(next<now.getTime())next=Date.UTC(now.getUTCFullYear()+1,d.getUTCMonth(),d.getUTCDate());
+  return Math.round((next-now.getTime())/86400000);
+}
+
+/* ---------- status ---------- */
+function status(p){
+  const cad=Number(p.cadence)||0;
+  const base=p.lastContact||p.createdAt||todayStr();
+  const since=daysSince(base);
+  const sinceContact=p.lastContact?daysSince(p.lastContact):null;
+  if(!cad)return{state:"off",since:sinceContact,remaining:null,pct:0,base:base};
+  const remaining=cad-since;
+  const soonWindow=Math.min(7,Math.max(1,Math.ceil(cad*0.25)));
+  const state=remaining<=0?"due":(remaining<=soonWindow?"soon":"ok");
+  return{state:state,since:sinceContact,remaining:remaining,pct:Math.max(0,Math.min(100,Math.round(since/cad*100))),base:base};
+}
+const isDue=p=>status(p).state==="due";
+const allTags=()=>{const m=new Map();
+  data.people.forEach(p=>(p.tags||[]).forEach(t=>m.set(t,(m.get(t)||0)+1)));
+  return [...m.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));};
+
+/* ---------- filtering ---------- */
+function visible(){
+  let list=data.people.slice();
+  if(activeTags.length){
+    list=list.filter(p=>{const t=(p.tags||[]).map(x=>x.toLowerCase());
+      const has=x=>t.includes(x.toLowerCase());
+      return matchAll?activeTags.every(has):activeTags.some(has);});
+  }
+  if(query.trim()){
+    const q=query.trim().toLowerCase();
+    list=list.filter(p=>[p.name,p.met,p.notes,p.email,p.phone,(p.tags||[]).join(" "),
+      (p.log||[]).map(l=>(l.kind||"")+" "+(l.note||"")).join(" ")]
+      .join(" ").toLowerCase().includes(q));
+  }
+  const sorters={
+    due:(a,b)=>{const sa=status(a),sb=status(b);
+      const ra=sa.state==="off"?1e9:sa.remaining, rb=sb.state==="off"?1e9:sb.remaining;
+      return ra-rb||a.name.localeCompare(b.name);},
+    name:(a,b)=>a.name.localeCompare(b.name),
+    recent:(a,b)=>(ms(b.lastContact||"1970-01-01"))-(ms(a.lastContact||"1970-01-01")),
+    added:(a,b)=>(b.createdAt||"").localeCompare(a.createdAt||"")||b.id.localeCompare(a.id)
+  };
+  return list.sort(sorters[sortBy]||sorters.due);
+}
+
+/* ---------- render ---------- */
+function initials(n){return n.trim().split(/\s+/).slice(0,2).map(w=>w[0]).join("").toUpperCase();}
+
+function card(p){
+  const st=status(p), c=el("div","card"+(st.state==="due"?" due":""));
+  const top=el("div","card-top");
+  top.appendChild(el("div","avatar",initials(p.name)));
+  const who=el("div");
+  const nm=el("div","nm",p.name); nm.style.cursor="pointer";
+  nm.onclick=()=>openDetail(p.id);
+  who.appendChild(nm);
+  if(p.met)who.appendChild(el("div","sub",p.met));
+  top.appendChild(who);
+  c.appendChild(top);
+
+  const bd=daysToBirthday(p.birthday);
+  if(bd!==null&&bd<=14){c.appendChild(el("div","bday",bd===0?"Birthday today":"Bday in "+bd+"d"));}
+
+  if((p.tags||[]).length){
+    const tw=el("div","tags");
+    p.tags.forEach(t=>{const b=el("button","chip",t);b.type="button";
+      b.onclick=()=>toggleTag(t);tw.appendChild(b);});
+    c.appendChild(tw);
+  }
+
+  const line=el("div","statusline");
+  const left=el("div","left");
+  left.appendChild(el("span","dot "+(st.state==="off"?"off":st.state)));
+  const txt=el("span",null,phrase(p,st));
+  if(st.state==="due")txt.className="s-due";
+  left.appendChild(txt);
+  line.appendChild(left);
+  if(st.state!=="off")line.appendChild(el("span","cad","every "+cadenceLabel(p.cadence)));
+  c.appendChild(line);
+
+  const act=el("div","card-actions");
+  const bl=el("button","btn sm primary","We caught up");bl.onclick=()=>openLog(p.id);
+  const bd2=el("button","btn sm","Details");bd2.onclick=()=>openDetail(p.id);
+  act.appendChild(bl);act.appendChild(bd2);
+  c.appendChild(act);
+  return c;
+}
+function phrase(p,st){
+  if(st.since===null)return"Nothing logged yet";
+  if(st.state==="due")return"It's been "+span(st.since);
+  return"Last caught up "+ago(st.since);
+}
+function cadenceLabel(n){n=Number(n)||0;
+  return ({7:"week",14:"2 weeks",30:"month",60:"2 months",90:"3 months",180:"6 months",365:"year"})[n]||n+" days";}
+
+function render(){
+  const people=data.people;
+  const due=people.filter(isDue).sort((a,b)=>status(a).remaining-status(b).remaining);
+  const seen=people.filter(p=>p.lastContact&&daysSince(p.lastContact)<=30);
+  $("#stPeople").textContent=people.length;
+  $("#stDue").textContent=due.length;
+  $("#stSoon").textContent=seen.length;
+  $("#stTags").textContent=allTags().length;
+
+  const dw=$("#dueWrap"), dg=$("#dueGrid");
+  dg.innerHTML="";
+  if(due.length){dw.hidden=false;$("#dueCount").textContent=due.length+(due.length===1?" person":" people");
+    due.forEach(p=>dg.appendChild(card(p)));}
+  else dw.hidden=true;
+
+  const tc=$("#tagcloud");tc.innerHTML="";
+  allTags().forEach(([t,n])=>{
+    const b=el("button","tag"+(activeTags.includes(t)?" on":""));b.type="button";
+    b.appendChild(document.createTextNode(t));
+    const s=el("span","ct",n);b.appendChild(s);
+    b.onclick=()=>toggleTag(t);tc.appendChild(b);});
+
+  const fb=$("#filterbar");fb.innerHTML="";
+  if(activeTags.length){
+    fb.appendChild(el("span",null,"Filtering: "+activeTags.join(activeTags.length>1?(matchAll?" AND ":" OR "):"")));
+    if(activeTags.length>1){
+      const t=el("button","btn ghost sm",matchAll?"Match all":"Match any");
+      t.onclick=()=>{matchAll=!matchAll;render();};fb.appendChild(t);}
+    const c=el("button","btn ghost sm","Clear");
+    c.onclick=()=>{activeTags=[];render();};fb.appendChild(c);
+  }
+
+  const list=visible(), g=$("#grid");g.innerHTML="";
+  list.forEach(p=>g.appendChild(card(p)));
+  $("#allCount").textContent=list.length===people.length?people.length+" total":list.length+" of "+people.length;
+
+  const es=$("#emptyState");es.innerHTML="";
+  if(!people.length){
+    const e=el("div","empty");
+    e.appendChild(el("h3","","No one here yet"));
+    e.appendChild(el("p","","Add the people you care about, tag them, and note how often you like to see them."));
+    const b=el("button","btn primary","+ Add your first person");b.onclick=()=>openForm();
+    e.appendChild(b);es.appendChild(e);
+  }else if(!list.length){
+    const e=el("div","empty");
+    e.appendChild(el("h3","","No matches"));
+    e.appendChild(el("p","","Try clearing the search or tag filters."));
+    es.appendChild(e);
+  }
+}
+function toggleTag(t){
+  const i=activeTags.indexOf(t);
+  if(i>-1)activeTags.splice(i,1);else activeTags.push(t);
+  render();
+}
+
+/* ---------- modals ---------- */
+function openModal(id){$(id).classList.add("open");document.body.style.overflow="hidden";}
+function closeModals(){document.querySelectorAll(".modal").forEach(m=>m.classList.remove("open"));
+  document.body.style.overflow="";deleteArmed=false;
+  const d=$("#btnDelete");d.textContent="Delete";d.classList.remove("primary");}
+document.addEventListener("click",e=>{
+  if(e.target.matches("[data-close]"))closeModals();
+  if(e.target.classList.contains("modal"))closeModals();
+});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModals();});
+
+function openForm(id){
+  editingId=id||null;deleteArmed=false;
+  const f=$("#personForm");f.reset();
+  const del=$("#btnDelete");del.textContent="Delete";del.hidden=!id;
+  $("#formTitle").textContent=id?"Edit person":"Add person";
+  if(id){
+    const p=data.people.find(x=>x.id===id);
+    f.name.value=p.name||"";
+    f.tags.value=(p.tags||[]).join(", ");
+    f.cadence.value=String(p.cadence!=null?p.cadence:30);
+    f.lastContact.value=p.lastContact||"";
+    f.phone.value=p.phone||"";f.email.value=p.email||"";f.link.value=p.link||"";
+    f.birthday.value=p.birthday||"";f.met.value=p.met||"";f.notes.value=p.notes||"";
+  }
+  openModal("#formModal");
+  setTimeout(()=>f.name.focus(),40);
+}
+$("#personForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const f=e.target;
+  const tags=f.tags.value.split(",").map(s=>s.trim()).filter(Boolean)
+    .filter((v,i,a)=>a.findIndex(x=>x.toLowerCase()===v.toLowerCase())===i);
+  const rec={
+    name:f.name.value.trim(),tags:tags,cadence:Number(f.cadence.value),
+    lastContact:f.lastContact.value||null,phone:f.phone.value.trim(),email:f.email.value.trim(),
+    link:f.link.value.trim(),birthday:f.birthday.value||null,met:f.met.value.trim(),notes:f.notes.value.trim()
+  };
+  if(!rec.name)return;
+  if(editingId){
+    const p=data.people.find(x=>x.id===editingId);Object.assign(p,rec);toast("Saved");
+  }else{
+    data.people.push(Object.assign({id:uid(),createdAt:todayStr(),log:[]},rec));toast(rec.name+" added");
+  }
+  save();closeModals();render();
+});
+$("#btnDelete").addEventListener("click",()=>{
+  const b=$("#btnDelete");
+  if(!deleteArmed){deleteArmed=true;b.textContent="Click again to delete";b.classList.add("primary");return;}
+  data.people=data.people.filter(p=>p.id!==editingId);
+  save();closeModals();render();toast("Deleted");
+});
+
+function openLog(id){
+  logId=id;
+  const p=data.people.find(x=>x.id===id);
+  $("#logWho").textContent="When did you and "+p.name+" last spend time together?";
+  const f=$("#logForm");f.reset();f.date.value=todayStr();
+  openModal("#logModal");
+}
+$("#logForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const f=e.target,p=data.people.find(x=>x.id===logId);
+  if(!p)return;
+  p.log=p.log||[];
+  p.log.push({date:f.date.value,kind:f.kind.value,note:f.note.value.trim()});
+  p.log.sort((a,b)=>b.date.localeCompare(a.date));
+  if(!p.lastContact||f.date.value>p.lastContact)p.lastContact=f.date.value;
+  save();closeModals();render();
+  toast("Logged — good to hear");
+});
+
+function openDetail(id){
+  const p=data.people.find(x=>x.id===id);if(!p)return;
+  logId=id;editingId=id;
+  $("#dName").textContent=p.name;
+  const b=$("#dBody");b.innerHTML="";
+  const st=status(p);
+  const banner=el("div","statusline");banner.style.marginBottom="14px";
+  const bl=el("div","left");
+  bl.appendChild(el("span","dot "+(st.state==="off"?"off":st.state)));
+  const bs=el("span",null,phrase(p,st));
+  if(st.state==="due")bs.className="s-due";
+  bl.appendChild(bs);banner.appendChild(bl);
+  banner.appendChild(el("span","cad",p.lastContact?fmt(p.lastContact):"no history yet"));
+  b.appendChild(banner);
+
+  if((p.tags||[]).length){
+    const tw=el("div","tags");tw.style.marginBottom="14px";
+    p.tags.forEach(t=>{const x=el("button","chip",t);x.type="button";
+      x.onclick=()=>{closeModals();if(!activeTags.includes(t))activeTags.push(t);render();};tw.appendChild(x);});
+    b.appendChild(tw);
+  }
+  const dl=el("dl","detail-meta");
+  const add=(k,v,href)=>{if(!v)return;dl.appendChild(el("dt",null,k));
+    const dd=el("dd");
+    if(href){const a=el("a",null,v);a.href=href;a.target="_blank";a.rel="noopener";dd.appendChild(a);}
+    else dd.textContent=v;
+    dl.appendChild(dd);};
+  add("Phone",p.phone,p.phone?"tel:"+p.phone.replace(/[^\d+]/g,""):null);
+  add("Email",p.email,p.email?"mailto:"+p.email:null);
+  add("Link",p.link,p.link?(/^https?:/i.test(p.link)?p.link:"https://"+p.link):null);
+  if(p.birthday){const d=daysToBirthday(p.birthday);
+    add("Birthday",fmt(p.birthday)+(d<=45?"  ·  in "+d+" days":""));}
+  add("From / met",p.met);
+  add("Checks in",p.cadence?"every "+cadenceLabel(p.cadence):"not surfaced");
+  add("Added",p.createdAt?fmt(p.createdAt):"");
+  if(dl.children.length)b.appendChild(dl);
+  if(p.notes){const n=el("div");n.style.cssText="font-size:13.5px;white-space:pre-wrap;margin-bottom:16px";
+    n.textContent=p.notes;b.appendChild(n);}
+
+  b.appendChild(el("div","sec-head")).appendChild(el("h2",null,"History"));
+  const ul=el("ul","log");
+  if(!(p.log||[]).length){const li=el("li");li.appendChild(el("span",null,"Nothing logged yet."));ul.appendChild(li);}
+  p.log=p.log||[];
+  p.log.forEach((entry,i)=>{
+    const li=el("li");
+    const t=el("time",null,fmtShort(entry.date));li.appendChild(t);
+    li.appendChild(el("span",null,(entry.kind||"Contact")+(entry.note?" — "+entry.note:"")));
+    const x=el("button","x","x");x.title="Remove entry";
+    x.onclick=()=>{p.log.splice(i,1);
+      p.lastContact=p.log.length?p.log.map(l=>l.date).sort().slice(-1)[0]:null;
+      save();openDetail(id);render();};
+    li.appendChild(x);ul.appendChild(li);
+  });
+  b.appendChild(ul);
+  openModal("#detailModal");
+}
+$("#dEdit").addEventListener("click",()=>{const id=editingId;closeModals();openForm(id);});
+$("#dLog").addEventListener("click",()=>{const id=logId;closeModals();openLog(id);});
+
+/* ---------- export / import ---------- */
+$("#btnExport").addEventListener("click",()=>{
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="touchpoint-"+todayStr()+".json";
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  toast("Backup downloaded");
+});
+$("#btnImport").addEventListener("click",()=>$("#fileInput").click());
+$("#fileInput").addEventListener("change",e=>{
+  const file=e.target.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const inc=JSON.parse(r.result);
+      const list=Array.isArray(inc)?inc:(inc.people||[]);
+      if(!Array.isArray(list))throw new Error("bad shape");
+      let added=0,updated=0;
+      list.forEach(p=>{
+        if(!p||!p.name)return;
+        p.id=p.id||uid();p.tags=p.tags||[];p.log=p.log||[];p.createdAt=p.createdAt||todayStr();
+        const ex=data.people.findIndex(x=>x.id===p.id);
+        if(ex>-1){data.people[ex]=p;updated++;}else{data.people.push(p);added++;}
+      });
+      save();render();
+      toast("Imported: "+added+" added, "+updated+" updated");
+    }catch(err){toast("That file could not be read");}
+    e.target.value="";
+  };
+  r.readAsText(file);
+});
+
+/* ---------- cloud sync ---------- */
+let FBA=null, FBF=null, auth=null, db=null;
+let user=null, unsub=null, pushTimer=null, applyingRemote=false;
+
+function setSync(text,cls){
+  const p=$("#syncPill");
+  p.className="sync"+(cls?" "+cls:"");
+  p.querySelector(".txt").textContent=text;
+  p.title=text;
+}
+const strip=o=>JSON.parse(JSON.stringify(o));
+
+function cloudPush(){
+  if(!user||!db)return;
+  clearTimeout(pushTimer);
+  setSync("Saving...","busy");
+  pushTimer=setTimeout(async()=>{
+    try{
+      await FBF.setDoc(FBF.doc(db,"users",user.uid),strip({people:data.people,updatedAt:data.updatedAt||Date.now(),version:1}));
+      setSync("Synced");
+    }catch(e){console.warn(e);setSync("Not synced","bad");}
+  },700);
+}
+function applyRemote(r){
+  applyingRemote=true;
+  data.people=Array.isArray(r.people)?r.people:[];
+  data.updatedAt=r.updatedAt||Date.now();
+  try{localStorage.setItem(KEY,JSON.stringify(data));}catch(e){}
+  applyingRemote=false;
+  render();
+}
+function authUI(){
+  const b=$("#btnAuth");
+  if(user){
+    const who=(user.displayName||user.email||"").split(" ")[0];
+    b.textContent="Sign out"+(who?" ("+who+")":"");
+  }else{
+    b.textContent="Sign in to sync";
+    setSync("This browser only","local");
+  }
+}
+$("#btnAuth").addEventListener("click",async()=>{
+  if(!auth){toast("Sync is unavailable right now — your data is still saved here");return;}
+  try{
+    if(user){ await FBA.signOut(auth); toast("Signed out — your data stays on this device"); }
+    else { await FBA.signInWithPopup(auth,new FBA.GoogleAuthProvider()); }
+  }catch(e){
+    console.warn(e);
+    toast(e&&e.code==="auth/popup-blocked"?"Allow popups for this site, then try again":"Sign-in did not complete");
+  }
+});
+async function onUser(u){
+  user=u||null; authUI();
+  if(unsub){unsub();unsub=null;}
+  if(!u)return;
+  setSync("Syncing...","busy");
+  const ref=FBF.doc(db,"users",u.uid);
+  try{
+    const snap=await FBF.getDoc(ref);
+    if(!snap.exists()){
+      await FBF.setDoc(ref,strip({people:data.people,updatedAt:data.updatedAt||Date.now(),version:1}));
+    }else{
+      const r=snap.data();
+      if((r.updatedAt||0)>=(data.updatedAt||0)) applyRemote(r);
+      else await FBF.setDoc(ref,strip({people:data.people,updatedAt:data.updatedAt,version:1}));
+    }
+    setSync("Synced");
+  }catch(e){console.warn(e);setSync("Not synced","bad");return;}
+  unsub=FBF.onSnapshot(ref,s=>{
+    if(!s.exists())return;
+    const r=s.data();
+    if((r.updatedAt||0)>(data.updatedAt||0)) applyRemote(r);
+    setSync("Synced");
+  },e=>{console.warn(e);setSync("Not synced","bad");});
+}
+
+async function initCloud(){
+  try{
+    const appMod=await import(FB+"firebase-app.js");
+    FBA=await import(FB+"firebase-auth.js");
+    FBF=await import(FB+"firebase-firestore.js");
+    const fbApp=appMod.initializeApp(firebaseConfig);
+    auth=FBA.getAuth(fbApp);
+    db=FBF.getFirestore(fbApp);
+    FBA.onAuthStateChanged(auth,onUser);
+  }catch(e){
+    console.warn("cloud unavailable",e);
+    setSync("This browser only","local");
+  }
+}
+
+/* ---------- misc ---------- */
+let toastTimer;
+function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("show");
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove("show"),2400);}
+$("#btnAdd").addEventListener("click",()=>openForm());
+$("#search").addEventListener("input",e=>{query=e.target.value;render();});
+$("#sort").addEventListener("change",e=>{sortBy=e.target.value;render();});
+
+load();render();initCloud();
+window.Touchpoint={get data(){return data;},save:save,render:render};
+})();
+</script>
+</body>
+</html>
