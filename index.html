@@ -133,6 +133,28 @@ label.f input,label.f textarea,label.f select{width:100%;padding:9px 11px;border
 label.f input:focus,label.f textarea:focus,label.f select:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
 label.f textarea{resize:vertical;min-height:64px}
 .hint{font-size:11.5px;color:var(--faint);margin-top:4px}
+div.f{display:block;margin-bottom:13px}
+div.f > span.flabel{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:600;letter-spacing:.03em}
+.tagwrap{position:relative}
+.tagbox{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-height:41px;padding:5px 8px;
+  border:1px solid var(--border);border-radius:9px;background:var(--surface-2);cursor:text}
+.tagbox:focus-within{outline:2px solid var(--accent-soft);border-color:var(--accent)}
+.tagbox input{flex:1;min-width:120px;border:none;background:transparent;padding:4px 2px;outline:none}
+.tchip{display:inline-flex;align-items:center;gap:2px;background:var(--accent);color:#fff;
+  border-radius:999px;padding:3px 3px 3px 10px;font-size:12.5px;font-weight:500;white-space:nowrap}
+.tchip button{border:none;background:transparent;color:inherit;font-size:15px;line-height:1;
+  padding:1px 6px;border-radius:999px;cursor:pointer;opacity:.75}
+.tchip button:hover{opacity:1;background:rgba(255,255,255,.18)}
+.tagdrop{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:30;background:var(--surface);
+  border:1px solid var(--border);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.18);
+  padding:10px;max-height:216px;overflow:auto}
+.tagdrop .dl{font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.07em;margin:2px 2px 8px}
+.tagdrop .bubbles{display:flex;flex-wrap:wrap;gap:7px}
+.tagdrop .tag.hi{border-color:var(--accent);color:var(--text);box-shadow:0 0 0 2px var(--accent-soft)}
+.tagdrop .tag.create{border-style:dashed;color:var(--accent-text)}
+.tagdrop .empty-note{font-size:12.5px;color:var(--muted);padding:2px}
+@media (prefers-color-scheme:dark){.tchip{color:#10231c}.tchip button:hover{background:rgba(0,0,0,.12)}}
+@media (max-width:640px){input,select,textarea{font-size:16px}}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .detail-meta{display:grid;grid-template-columns:auto 1fr;gap:7px 14px;font-size:13.5px;margin-bottom:16px}
 .detail-meta dt{color:var(--muted);font-size:12.5px}
@@ -159,10 +181,12 @@ label.f textarea{resize:vertical;min-height:64px}
     <div class="brand"><h1>Touchpoint</h1><span>people worth keeping up with</span></div>
     <span class="sync local" id="syncPill"><span class="d"></span><span class="txt">This browser only</span></span>
     <button class="btn ghost sm" id="btnAuth">Sign in to sync</button>
+    <button class="btn ghost sm" id="btnVcf">From contacts</button>
     <button class="btn ghost sm" id="btnImport">Import</button>
     <button class="btn ghost sm" id="btnExport">Export</button>
     <button class="btn primary" id="btnAdd">+ Add person</button>
     <input type="file" id="fileInput" accept="application/json,.json" hidden>
+    <input type="file" id="vcfInput" accept=".vcf,text/vcard,text/x-vcard,text/directory" multiple hidden>
   </div>
 </header>
 
@@ -202,8 +226,17 @@ label.f textarea{resize:vertical;min-height:64px}
   <header><h3 id="formTitle">Add person</h3><button class="btn ghost sm" data-close>Close</button></header>
   <form id="personForm"><div class="body">
     <label class="f"><span>NAME</span><input name="name" required autocomplete="off" placeholder="Sam Whitaker"></label>
-    <label class="f"><span>TAGS</span><input name="tags" autocomplete="off" placeholder="golf, finance program, minnesota">
-      <div class="hint">Comma separated. Click a tag anywhere to filter by it.</div></label>
+    <div class="f">
+      <span class="flabel">TAGS</span>
+      <div class="tagwrap">
+        <div class="tagbox" id="tagBox">
+          <input id="tagEntry" autocomplete="off" autocapitalize="off" enterkeyhint="done" placeholder="Pick or type a tag">
+        </div>
+        <div class="tagdrop" id="tagDrop" hidden></div>
+      </div>
+      <input type="hidden" name="tags">
+      <div class="hint">Tap one of your tags, or type a new one and press Enter.</div>
+    </div>
     <div class="row2">
       <label class="f"><span>CHECK IN EVERY</span>
         <select name="cadence">
@@ -455,7 +488,7 @@ function render(){
   if(!people.length){
     const e=el("div","empty");
     e.appendChild(el("h3","","No one here yet"));
-    e.appendChild(el("p","","Add the people you care about, tag them, and note how often you like to see them."));
+    e.appendChild(el("p","","Add the people you care about, tag them, and note how often you like to see them. \u201cFrom contacts\u201d up top imports a contact card straight off your phone."));
     const b=el("button","btn primary","+ Add your first person");b.onclick=()=>openForm();
     e.appendChild(b);es.appendChild(e);
   }else if(!list.length){
@@ -482,22 +515,29 @@ document.addEventListener("click",e=>{
 });
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModals();});
 
-function openForm(id){
+function openForm(id,prefill){
   editingId=id||null;deleteArmed=false;
   const f=$("#personForm");f.reset();
   const del=$("#btnDelete");del.textContent="Delete";del.hidden=!id;
-  $("#formTitle").textContent=id?"Edit person":"Add person";
+  setPickerTags([]);
+  $("#formTitle").textContent=id?"Edit person":(prefill?"Add "+(prefill.name||"person"):"Add person");
+  if(prefill){
+    f.name.value=prefill.name||"";
+    f.cadence.value="30";
+    f.phone.value=prefill.phone||"";f.email.value=prefill.email||"";f.link.value=prefill.link||"";
+    f.birthday.value=prefill.birthday||"";f.notes.value=prefill.notes||"";
+  }
   if(id){
     const p=data.people.find(x=>x.id===id);
     f.name.value=p.name||"";
-    f.tags.value=(p.tags||[]).join(", ");
+    setPickerTags(p.tags||[]);
     f.cadence.value=String(p.cadence!=null?p.cadence:30);
     f.lastContact.value=p.lastContact||"";
     f.phone.value=p.phone||"";f.email.value=p.email||"";f.link.value=p.link||"";
     f.birthday.value=p.birthday||"";f.met.value=p.met||"";f.notes.value=p.notes||"";
   }
   openModal("#formModal");
-  setTimeout(()=>f.name.focus(),40);
+  setTimeout(()=>{ if(!id&&prefill) $("#tagEntry").focus(); else f.name.focus(); },40);
 }
 $("#personForm").addEventListener("submit",e=>{
   e.preventDefault();
@@ -725,6 +765,227 @@ async function initCloud(){
     console.warn("cloud unavailable",e);
     setSync("This browser only","local");
   }
+}
+
+
+/* ---------- tag picker ---------- */
+let pickTags=[], pickHi=0, pickOpts=[];
+const tagBox=$("#tagBox"), tagEntry=$("#tagEntry"), tagDrop=$("#tagDrop");
+const norm=t=>t.trim().replace(/\s+/g," ").replace(/,/g,"");
+function syncHidden(){ $("#personForm").tags.value=pickTags.join(", "); }
+function setPickerTags(list){
+  pickTags=[];
+  (list||[]).forEach(t=>{const n=norm(t); if(n&&!pickTags.some(x=>x.toLowerCase()===n.toLowerCase()))pickTags.push(n);});
+  tagEntry.value=""; closeDrop(); drawChips();
+}
+function drawChips(){
+  [...tagBox.querySelectorAll(".tchip")].forEach(c=>c.remove());
+  pickTags.forEach((t,i)=>{
+    const c=el("span","tchip"); c.appendChild(document.createTextNode(t));
+    const x=el("button",null,"×"); x.type="button"; x.title="Remove "+t; x.setAttribute("aria-label","Remove "+t);
+    x.addEventListener("pointerdown",e=>e.preventDefault());
+    x.onclick=()=>{pickTags.splice(i,1);drawChips();drawDrop();tagEntry.focus();};
+    c.appendChild(x); tagBox.insertBefore(c,tagEntry);
+  });
+  tagEntry.placeholder=pickTags.length?"Add another":"Pick or type a tag";
+  syncHidden();
+}
+function addTag(raw){
+  const n=norm(raw); if(!n)return;
+  const existing=allTags().map(a=>a[0]).find(x=>x.toLowerCase()===n.toLowerCase());
+  const final=existing||n;
+  if(!pickTags.some(x=>x.toLowerCase()===final.toLowerCase())) pickTags.push(final);
+  tagEntry.value=""; drawChips(); drawDrop(); tagEntry.focus();
+}
+function buildOpts(){
+  const q=norm(tagEntry.value).toLowerCase();
+  const taken=new Set(pickTags.map(t=>t.toLowerCase()));
+  const pool=allTags().filter(([t])=>!taken.has(t.toLowerCase()));
+  let hits=q?pool.filter(([t])=>t.toLowerCase().includes(q)):pool;
+  hits.sort((a,b)=>{
+    if(!q)return 0;
+    const ae=a[0].toLowerCase()===q, be=b[0].toLowerCase()===q; if(ae!==be)return ae?-1:1;
+    const as=a[0].toLowerCase().startsWith(q), bs=b[0].toLowerCase().startsWith(q); if(as!==bs)return as?-1:1;
+    return 0;
+  });
+  const opts=hits.map(([t,n])=>({kind:"tag",tag:t,count:n}));
+  const exact=allTags().some(([t])=>t.toLowerCase()===q) || taken.has(q);
+  if(q&&!exact) opts.push({kind:"create",tag:norm(tagEntry.value)});
+  return opts;
+}
+function drawDrop(){
+  pickOpts=buildOpts();
+  if(pickHi>=pickOpts.length)pickHi=Math.max(0,pickOpts.length-1);
+  tagDrop.innerHTML="";
+  const q=norm(tagEntry.value);
+  if(!pickOpts.length){
+    tagDrop.appendChild(el("div","empty-note",
+      allTags().length?(q?"Already added.":"Every tag you have is already on this person."):"No tags yet. Type one and press Enter to create it."));
+  }else{
+    const hasTags=pickOpts.some(o=>o.kind==="tag");
+    if(hasTags) tagDrop.appendChild(el("div","dl",q?"Matching tags":"Your tags"));
+    const row=el("div","bubbles");
+    pickOpts.forEach((o,i)=>{
+      const b=el("button","tag"+(o.kind==="create"?" create":"")+(i===pickHi?" hi":""));
+      b.type="button";
+      if(o.kind==="create"){ b.textContent="+ Create “"+o.tag+"”"; }
+      else{ b.appendChild(document.createTextNode(o.tag)); b.appendChild(el("span","ct",o.count)); }
+      b.addEventListener("pointerdown",e=>e.preventDefault());
+      b.onclick=()=>addTag(o.tag);
+      row.appendChild(b);
+    });
+    tagDrop.appendChild(row);
+  }
+  tagDrop.hidden=false;
+}
+function closeDrop(){ tagDrop.hidden=true; pickHi=0; }
+tagBox.addEventListener("pointerdown",e=>{ if(e.target===tagBox){ e.preventDefault(); tagEntry.focus(); }});
+tagEntry.addEventListener("focus",()=>{ pickHi=0; drawDrop(); });
+tagEntry.addEventListener("input",()=>{ if(tagEntry.value.includes(",")){ tagEntry.value.split(",").forEach(addTag); return; } pickHi=0; drawDrop(); });
+tagEntry.addEventListener("blur",()=>setTimeout(()=>{ if(document.activeElement!==tagEntry) closeDrop(); },120));
+tagEntry.addEventListener("keydown",e=>{
+  if(e.key==="Enter"){
+    e.preventDefault();
+    const o=pickOpts[pickHi];
+    if(!tagDrop.hidden&&o) addTag(o.tag); else addTag(tagEntry.value);
+  }else if(e.key==="ArrowDown"||e.key==="ArrowRight"&&!tagEntry.value){
+    if(pickOpts.length){ e.preventDefault(); pickHi=(pickHi+1)%pickOpts.length; drawDrop(); }
+  }else if(e.key==="ArrowUp"||e.key==="ArrowLeft"&&!tagEntry.value){
+    if(pickOpts.length){ e.preventDefault(); pickHi=(pickHi-1+pickOpts.length)%pickOpts.length; drawDrop(); }
+  }else if(e.key==="Backspace"&&!tagEntry.value&&pickTags.length){
+    pickTags.pop(); drawChips(); drawDrop();
+  }else if(e.key==="Escape"&&!tagDrop.hidden){
+    e.stopPropagation(); closeDrop();
+  }else if(e.key==="Tab"){ closeDrop(); }
+});
+/* anything typed but not committed still counts when you hit Save */
+$("#formModal").addEventListener("submit",()=>{ if(norm(tagEntry.value)) addTag(tagEntry.value); },true);
+
+/* ---------- contact card (.vcf) import ---------- */
+function vcfUnfold(t){
+  return t.replace(/\r\n/g,"\n").replace(/\r/g,"\n").replace(/\n[ \t]/g,"");
+}
+function vcfUnescape(v){
+  return String(v||"").replace(/\\n/gi,"\n").replace(/\\,/g,",").replace(/\;/g,";").replace(/\\\\/g,"\\").trim();
+}
+function decodeQP(v){
+  try{
+    const bytes=[];
+    for(let i=0;i<v.length;i++){
+      if(v[i]==="="&&/[0-9A-Fa-f]{2}/.test(v.substr(i+1,2))){bytes.push(parseInt(v.substr(i+1,2),16));i+=2;}
+      else bytes.push(v.charCodeAt(i));
+    }
+    return new TextDecoder().decode(new Uint8Array(bytes));
+  }catch(e){return v;}
+}
+function parseVcfLine(line){
+  const c=line.indexOf(":");
+  if(c<0)return null;
+  const left=line.slice(0,c), value=line.slice(c+1);
+  const bits=left.split(";");
+  const name=bits[0].replace(/^[^.]*\./,"").toUpperCase();
+  const params={};
+  bits.slice(1).forEach(b=>{
+    const eq=b.indexOf("=");
+    if(eq<0){params.TYPE=(params.TYPE?params.TYPE+",":"")+b.toLowerCase();}
+    else{
+      const k=b.slice(0,eq).toUpperCase(), v=b.slice(eq+1).toLowerCase().replace(/"/g,"");
+      params[k]=params[k]?params[k]+","+v:v;
+    }
+  });
+  let val=value;
+  if((params.ENCODING||"").indexOf("quoted-printable")>-1) val=decodeQP(val);
+  return {name:name,params:params,value:val};
+}
+function normBirthday(v){
+  if(!v)return null;
+  v=v.trim();
+  let m=v.match(/^(\d{4})-?(\d{2})-?(\d{2})/);
+  if(m){
+    if(m[1]==="1604"){const y=new Date().getFullYear();return y+"-"+m[2]+"-"+m[3];}
+    return m[1]+"-"+m[2]+"-"+m[3];
+  }
+  m=v.match(/^--(\d{2})-?(\d{2})$/);
+  if(m){const y=new Date().getFullYear();return y+"-"+m[1]+"-"+m[2];}
+  return null;
+}
+function parseVcards(text){
+  const out=[];
+  const blocks=vcfUnfold(text).split(/BEGIN:VCARD/i).slice(1);
+  blocks.forEach(block=>{
+    const body=block.split(/END:VCARD/i)[0];
+    const props=body.split("\n").map(l=>l.trim()).filter(Boolean).map(parseVcfLine).filter(Boolean);
+    const get=n=>props.filter(p=>p.name===n);
+    let name="";
+    const fn=get("FN")[0];
+    if(fn)name=vcfUnescape(fn.value);
+    if(!name){
+      const n=get("N")[0];
+      if(n){const parts=n.value.split(";").map(vcfUnescape);
+        name=[parts[1],parts[0]].filter(Boolean).join(" ").trim();}
+    }
+    if(!name)return;
+    const tels=get("TEL");
+    const pick=(list,want)=>list.find(p=>((p.params.TYPE||"")+"").indexOf(want)>-1)||null;
+    const tel=pick(tels,"cell")||pick(tels,"mobile")||tels[0];
+    const emails=get("EMAIL");
+    const email=pick(emails,"home")||emails[0];
+    const url=get("URL")[0];
+    const org=get("ORG")[0];
+    const note=get("NOTE")[0];
+    const bday=get("BDAY")[0];
+    const notes=[org?vcfUnescape(org.value).replace(/;+$/,"").replace(/;/g," — "):"",
+                 note?vcfUnescape(note.value):""].filter(Boolean).join("\n");
+    out.push({
+      name:name,
+      phone:tel?vcfUnescape(tel.value).replace(/\s+/g," ").trim():"",
+      email:email?vcfUnescape(email.value):"",
+      link:url?vcfUnescape(url.value):"",
+      birthday:normBirthday(bday?bday.value:""),
+      notes:notes
+    });
+  });
+  return out;
+}
+function addFromContacts(list){
+  const existing=new Set(data.people.map(p=>p.name.trim().toLowerCase()));
+  let added=0, skipped=0;
+  list.forEach(c=>{
+    if(existing.has(c.name.trim().toLowerCase())){skipped++;return;}
+    existing.add(c.name.trim().toLowerCase());
+    data.people.push({id:uid(),createdAt:todayStr(),log:[],tags:[],cadence:30,lastContact:null,met:"",
+      name:c.name,phone:c.phone||"",email:c.email||"",link:c.link||"",birthday:c.birthday||null,notes:c.notes||""});
+    added++;
+  });
+  if(added)save();
+  render();
+  toast(added+(added===1?" person added":" people added")+(skipped?", "+skipped+" already here":""));
+}
+$("#btnVcf").addEventListener("click",()=>$("#vcfInput").click());
+$("#vcfInput").addEventListener("change",async e=>{
+  const files=[...e.target.files];
+  if(!files.length)return;
+  try{
+    const texts=await Promise.all(files.map(f=>f.text()));
+    const cards=texts.flatMap(parseVcards);
+    if(!cards.length){toast("No contacts found in that file");}
+    else if(cards.length===1){openForm(null,cards[0]);}
+    else addFromContacts(cards);
+  }catch(err){console.warn(err);toast("Could not read that contact card");}
+  e.target.value="";
+});
+if(navigator.contacts&&navigator.contacts.select&&window.ContactsManager){
+  const b=el("button","btn ghost sm","Pick contacts");
+  b.onclick=async()=>{
+    try{
+      const picked=await navigator.contacts.select(["name","tel","email"],{multiple:true});
+      const cards=picked.map(c=>({name:(c.name&&c.name[0])||"",phone:(c.tel&&c.tel[0])||"",
+        email:(c.email&&c.email[0])||"",link:"",birthday:null,notes:""})).filter(c=>c.name);
+      if(!cards.length)return;
+      if(cards.length===1)openForm(null,cards[0]); else addFromContacts(cards);
+    }catch(err){console.warn(err);}
+  };
+  $("#btnVcf").insertAdjacentElement("beforebegin",b);
 }
 
 /* ---------- misc ---------- */
