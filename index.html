@@ -165,6 +165,20 @@ div.f > span.flabel{display:block;font-size:12px;color:var(--muted);margin-botto
 .log li time{color:var(--muted);font-size:12px;flex:none;width:78px;font-variant-numeric:tabular-nums;padding-top:1px}
 .log li .x{margin-left:auto;color:var(--faint);background:none;border:none;padding:0 2px;font-size:14px}
 .log li .x:hover{color:var(--due)}
+.imp-sum{margin:0 0 14px;color:var(--muted);font-size:13.5px}
+.imp-tools{display:flex;gap:8px;align-items:center;margin:4px 0 10px}
+.imp-tools .search{min-width:0;flex:1}
+.imp-list{border:1px solid var(--border);border-radius:11px;max-height:46vh;overflow:auto;background:var(--surface-2)}
+.irow{display:flex;align-items:center;gap:11px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer}
+.irow:last-child{border-bottom:none}
+.irow input{width:18px;height:18px;accent-color:var(--accent);flex:none;margin:0}
+.irow .avatar{width:32px;height:32px;font-size:12px}
+.irow .itx{min-width:0;flex:1;display:flex;flex-direction:column}
+.irow .itx b{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.irow .itx small{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.irow.dup{cursor:default;opacity:.55}
+.irow .idup{font-size:11px;color:var(--muted);border:1px solid var(--border);border-radius:999px;padding:2px 8px;flex:none;white-space:nowrap}
+.imp-empty{padding:18px;color:var(--muted);font-size:13px;text-align:center}
 .toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,80px);background:var(--text);color:var(--bg);
   padding:10px 18px;border-radius:999px;font-size:13.5px;font-weight:500;opacity:0;transition:.25s;z-index:80;pointer-events:none}
 .toast.show{opacity:1;transform:translate(-50%,0)}
@@ -281,6 +295,40 @@ div.f > span.flabel{display:block;font-size:12px;color:var(--muted);margin-botto
   </div>
   <div class="foot"><button type="button" class="btn" data-close>Cancel</button>
     <button type="submit" class="btn primary">Save it</button></div></form>
+</div></div>
+
+<div class="modal" id="importModal"><div class="sheet">
+  <header><h3>Add from contacts</h3><button class="btn ghost sm" data-close>Close</button></header>
+  <div class="body">
+    <p class="imp-sum" id="impSum"></p>
+    <div class="f">
+      <span class="flabel">TAG EVERYONE YOU ADD</span>
+      <div class="tagwrap">
+        <div class="tagbox" id="impTagBox">
+          <input id="impTagEntry" autocomplete="off" autocapitalize="off" enterkeyhint="done" placeholder="Pick or type a tag">
+        </div>
+        <div class="tagdrop" id="impTagDrop" hidden></div>
+      </div>
+      <div class="hint">Optional. You can still change tags on each person later.</div>
+    </div>
+    <label class="f"><span>CHECK IN EVERY</span>
+      <select id="impCadence">
+        <option value="7">1 week</option><option value="14">2 weeks</option>
+        <option value="30" selected>1 month</option><option value="60">2 months</option>
+        <option value="90">3 months</option><option value="180">6 months</option>
+        <option value="365">1 year</option><option value="0">Don't surface</option>
+      </select></label>
+    <div class="imp-tools">
+      <input class="search" id="impSearch" type="search" placeholder="Search this file">
+      <button type="button" class="btn sm" id="impAll">Select all</button>
+      <button type="button" class="btn sm" id="impNone">None</button>
+    </div>
+    <div class="imp-list" id="impList"></div>
+  </div>
+  <div class="foot">
+    <button type="button" class="btn" data-close>Cancel</button>
+    <button type="button" class="btn primary" id="impGo">Add people</button>
+  </div>
 </div></div>
 
 <div class="modal" id="detailModal"><div class="sheet">
@@ -768,98 +816,105 @@ async function initCloud(){
 }
 
 
-/* ---------- tag picker ---------- */
-let pickTags=[], pickHi=0, pickOpts=[];
-const tagBox=$("#tagBox"), tagEntry=$("#tagEntry"), tagDrop=$("#tagDrop");
+/* ---------- tag picker (reusable) ---------- */
 const norm=t=>t.trim().replace(/\s+/g," ").replace(/,/g,"");
-function syncHidden(){ $("#personForm").tags.value=pickTags.join(", "); }
-function setPickerTags(list){
-  pickTags=[];
-  (list||[]).forEach(t=>{const n=norm(t); if(n&&!pickTags.some(x=>x.toLowerCase()===n.toLowerCase()))pickTags.push(n);});
-  tagEntry.value=""; closeDrop(); drawChips();
-}
-function drawChips(){
-  [...tagBox.querySelectorAll(".tchip")].forEach(c=>c.remove());
-  pickTags.forEach((t,i)=>{
-    const c=el("span","tchip"); c.appendChild(document.createTextNode(t));
-    const x=el("button",null,"×"); x.type="button"; x.title="Remove "+t; x.setAttribute("aria-label","Remove "+t);
-    x.addEventListener("pointerdown",e=>e.preventDefault());
-    x.onclick=()=>{pickTags.splice(i,1);drawChips();drawDrop();tagEntry.focus();};
-    c.appendChild(x); tagBox.insertBefore(c,tagEntry);
-  });
-  tagEntry.placeholder=pickTags.length?"Add another":"Pick or type a tag";
-  syncHidden();
-}
-function addTag(raw){
-  const n=norm(raw); if(!n)return;
-  const existing=allTags().map(a=>a[0]).find(x=>x.toLowerCase()===n.toLowerCase());
-  const final=existing||n;
-  if(!pickTags.some(x=>x.toLowerCase()===final.toLowerCase())) pickTags.push(final);
-  tagEntry.value=""; drawChips(); drawDrop(); tagEntry.focus();
-}
-function buildOpts(){
-  const q=norm(tagEntry.value).toLowerCase();
-  const taken=new Set(pickTags.map(t=>t.toLowerCase()));
-  const pool=allTags().filter(([t])=>!taken.has(t.toLowerCase()));
-  let hits=q?pool.filter(([t])=>t.toLowerCase().includes(q)):pool;
-  hits.sort((a,b)=>{
-    if(!q)return 0;
-    const ae=a[0].toLowerCase()===q, be=b[0].toLowerCase()===q; if(ae!==be)return ae?-1:1;
-    const as=a[0].toLowerCase().startsWith(q), bs=b[0].toLowerCase().startsWith(q); if(as!==bs)return as?-1:1;
-    return 0;
-  });
-  const opts=hits.map(([t,n])=>({kind:"tag",tag:t,count:n}));
-  const exact=allTags().some(([t])=>t.toLowerCase()===q) || taken.has(q);
-  if(q&&!exact) opts.push({kind:"create",tag:norm(tagEntry.value)});
-  return opts;
-}
-function drawDrop(){
-  pickOpts=buildOpts();
-  if(pickHi>=pickOpts.length)pickHi=Math.max(0,pickOpts.length-1);
-  tagDrop.innerHTML="";
-  const q=norm(tagEntry.value);
-  if(!pickOpts.length){
-    tagDrop.appendChild(el("div","empty-note",
-      allTags().length?(q?"Already added.":"Every tag you have is already on this person."):"No tags yet. Type one and press Enter to create it."));
-  }else{
-    const hasTags=pickOpts.some(o=>o.kind==="tag");
-    if(hasTags) tagDrop.appendChild(el("div","dl",q?"Matching tags":"Your tags"));
-    const row=el("div","bubbles");
-    pickOpts.forEach((o,i)=>{
-      const b=el("button","tag"+(o.kind==="create"?" create":"")+(i===pickHi?" hi":""));
-      b.type="button";
-      if(o.kind==="create"){ b.textContent="+ Create “"+o.tag+"”"; }
-      else{ b.appendChild(document.createTextNode(o.tag)); b.appendChild(el("span","ct",o.count)); }
-      b.addEventListener("pointerdown",e=>e.preventDefault());
-      b.onclick=()=>addTag(o.tag);
-      row.appendChild(b);
+function makeTagPicker(box,entry,drop,onChange){
+  let tags=[], hi=0, opts=[];
+  function changed(){ if(onChange) onChange(tags.slice()); }
+  function drawChips(){
+    [...box.querySelectorAll(".tchip")].forEach(c=>c.remove());
+    tags.forEach((t,i)=>{
+      const c=el("span","tchip"); c.appendChild(document.createTextNode(t));
+      const x=el("button",null,"×"); x.type="button"; x.title="Remove "+t; x.setAttribute("aria-label","Remove "+t);
+      x.addEventListener("pointerdown",e=>e.preventDefault());
+      x.onclick=()=>{tags.splice(i,1);drawChips();drawDrop();entry.focus();};
+      c.appendChild(x); box.insertBefore(c,entry);
     });
-    tagDrop.appendChild(row);
+    entry.placeholder=tags.length?"Add another":"Pick or type a tag";
+    changed();
   }
-  tagDrop.hidden=false;
+  function add(raw){
+    const n=norm(raw); if(!n)return;
+    const existing=allTags().map(a=>a[0]).find(x=>x.toLowerCase()===n.toLowerCase());
+    const final=existing||n;
+    if(!tags.some(x=>x.toLowerCase()===final.toLowerCase())) tags.push(final);
+    entry.value=""; drawChips(); drawDrop(); entry.focus();
+  }
+  function buildOpts(){
+    const q=norm(entry.value).toLowerCase();
+    const taken=new Set(tags.map(t=>t.toLowerCase()));
+    const pool=allTags().filter(([t])=>!taken.has(t.toLowerCase()));
+    let hits=q?pool.filter(([t])=>t.toLowerCase().includes(q)):pool;
+    hits.sort((a,b)=>{
+      if(!q)return 0;
+      const ae=a[0].toLowerCase()===q, be=b[0].toLowerCase()===q; if(ae!==be)return ae?-1:1;
+      const as=a[0].toLowerCase().startsWith(q), bs=b[0].toLowerCase().startsWith(q); if(as!==bs)return as?-1:1;
+      return 0;
+    });
+    const o=hits.map(([t,n])=>({kind:"tag",tag:t,count:n}));
+    const exact=allTags().some(([t])=>t.toLowerCase()===q)||taken.has(q);
+    if(q&&!exact) o.push({kind:"create",tag:norm(entry.value)});
+    return o;
+  }
+  function drawDrop(){
+    opts=buildOpts();
+    if(hi>=opts.length)hi=Math.max(0,opts.length-1);
+    drop.innerHTML="";
+    const q=norm(entry.value);
+    if(!opts.length){
+      drop.appendChild(el("div","empty-note",
+        allTags().length?(q?"Already added.":"All your tags are already selected."):"No tags yet. Type one and press Enter to create it."));
+    }else{
+      if(opts.some(o=>o.kind==="tag")) drop.appendChild(el("div","dl",q?"Matching tags":"Your tags"));
+      const row=el("div","bubbles");
+      opts.forEach((o,i)=>{
+        const b=el("button","tag"+(o.kind==="create"?" create":"")+(i===hi?" hi":""));
+        b.type="button";
+        if(o.kind==="create"){ b.textContent="+ Create “"+o.tag+"”"; }
+        else{ b.appendChild(document.createTextNode(o.tag)); b.appendChild(el("span","ct",o.count)); }
+        b.addEventListener("pointerdown",e=>e.preventDefault());
+        b.onclick=()=>add(o.tag);
+        row.appendChild(b);
+      });
+      drop.appendChild(row);
+    }
+    drop.hidden=false;
+  }
+  function close(){ drop.hidden=true; hi=0; }
+  box.addEventListener("pointerdown",e=>{ if(e.target===box){ e.preventDefault(); entry.focus(); }});
+  entry.addEventListener("focus",()=>{ hi=0; drawDrop(); });
+  entry.addEventListener("input",()=>{ if(entry.value.includes(",")){ entry.value.split(",").forEach(add); return; } hi=0; drawDrop(); });
+  entry.addEventListener("blur",()=>setTimeout(()=>{ if(document.activeElement!==entry) close(); },120));
+  entry.addEventListener("keydown",e=>{
+    if(e.key==="Enter"){
+      e.preventDefault();
+      const o=opts[hi];
+      if(!drop.hidden&&o) add(o.tag); else add(entry.value);
+    }else if(e.key==="ArrowDown"||e.key==="ArrowRight"&&!entry.value){
+      if(opts.length){ e.preventDefault(); hi=(hi+1)%opts.length; drawDrop(); }
+    }else if(e.key==="ArrowUp"||e.key==="ArrowLeft"&&!entry.value){
+      if(opts.length){ e.preventDefault(); hi=(hi-1+opts.length)%opts.length; drawDrop(); }
+    }else if(e.key==="Backspace"&&!entry.value&&tags.length){
+      tags.pop(); drawChips(); drawDrop();
+    }else if(e.key==="Escape"&&!drop.hidden){
+      e.stopPropagation(); close();
+    }else if(e.key==="Tab"){ close(); }
+  });
+  return {
+    get:()=>tags.slice(),
+    set:list=>{
+      tags=[];
+      (list||[]).forEach(t=>{const n=norm(t); if(n&&!tags.some(x=>x.toLowerCase()===n.toLowerCase()))tags.push(n);});
+      entry.value=""; close(); drawChips();
+    },
+    commitPending:()=>{ if(norm(entry.value)) add(entry.value); }
+  };
 }
-function closeDrop(){ tagDrop.hidden=true; pickHi=0; }
-tagBox.addEventListener("pointerdown",e=>{ if(e.target===tagBox){ e.preventDefault(); tagEntry.focus(); }});
-tagEntry.addEventListener("focus",()=>{ pickHi=0; drawDrop(); });
-tagEntry.addEventListener("input",()=>{ if(tagEntry.value.includes(",")){ tagEntry.value.split(",").forEach(addTag); return; } pickHi=0; drawDrop(); });
-tagEntry.addEventListener("blur",()=>setTimeout(()=>{ if(document.activeElement!==tagEntry) closeDrop(); },120));
-tagEntry.addEventListener("keydown",e=>{
-  if(e.key==="Enter"){
-    e.preventDefault();
-    const o=pickOpts[pickHi];
-    if(!tagDrop.hidden&&o) addTag(o.tag); else addTag(tagEntry.value);
-  }else if(e.key==="ArrowDown"||e.key==="ArrowRight"&&!tagEntry.value){
-    if(pickOpts.length){ e.preventDefault(); pickHi=(pickHi+1)%pickOpts.length; drawDrop(); }
-  }else if(e.key==="ArrowUp"||e.key==="ArrowLeft"&&!tagEntry.value){
-    if(pickOpts.length){ e.preventDefault(); pickHi=(pickHi-1+pickOpts.length)%pickOpts.length; drawDrop(); }
-  }else if(e.key==="Backspace"&&!tagEntry.value&&pickTags.length){
-    pickTags.pop(); drawChips(); drawDrop();
-  }else if(e.key==="Escape"&&!tagDrop.hidden){
-    e.stopPropagation(); closeDrop();
-  }else if(e.key==="Tab"){ closeDrop(); }
-});
+const formPicker=makeTagPicker($("#tagBox"),$("#tagEntry"),$("#tagDrop"),
+  list=>{ $("#personForm").tags.value=list.join(", "); });
+function setPickerTags(list){ formPicker.set(list); }
 /* anything typed but not committed still counts when you hit Save */
-$("#formModal").addEventListener("submit",()=>{ if(norm(tagEntry.value)) addTag(tagEntry.value); },true);
+$("#formModal").addEventListener("submit",()=>formPicker.commitPending(),true);
 
 /* ---------- contact card (.vcf) import ---------- */
 function vcfUnfold(t){
@@ -947,6 +1002,73 @@ function parseVcards(text){
   });
   return out;
 }
+const impPicker=makeTagPicker($("#impTagBox"),$("#impTagEntry"),$("#impTagDrop"));
+let impCards=[];
+function impSelectedCount(){ return impCards.filter(c=>c.sel&&!c.dup).length; }
+function impRefreshButton(){
+  const n=impSelectedCount(), b=$("#impGo");
+  b.textContent=n?("Add "+n+(n===1?" person":" people")):"Add people";
+  b.disabled=!n; b.style.opacity=n?"":".5";
+}
+function impDraw(){
+  const list=$("#impList"); list.innerHTML="";
+  const q=$("#impSearch").value.trim().toLowerCase();
+  const shown=impCards.filter(c=>!q||[c.name,c.phone,c.email].join(" ").toLowerCase().includes(q));
+  if(!shown.length){ list.appendChild(el("div","imp-empty","No one in this file matches “"+q+"”.")); }
+  shown.forEach(c=>{
+    const row=el("label","irow"+(c.dup?" dup":""));
+    const cb=el("input"); cb.type="checkbox"; cb.checked=!!c.sel&&!c.dup; cb.disabled=c.dup;
+    cb.onchange=()=>{ c.sel=cb.checked; impRefreshButton(); };
+    row.appendChild(cb);
+    row.appendChild(el("span","avatar",initials(c.name)));
+    const tx=el("span","itx"); tx.appendChild(el("b",null,c.name));
+    tx.appendChild(el("small",null,[c.phone,c.email].filter(Boolean).join("  ·  ")||"No phone or email"));
+    row.appendChild(tx);
+    if(c.dup) row.appendChild(el("span","idup","Already in Touchpoint"));
+    list.appendChild(row);
+  });
+  impRefreshButton();
+}
+function openImportReview(cards){
+  const have=new Set(data.people.map(p=>p.name.trim().toLowerCase()));
+  const byName=new Map();
+  cards.forEach(c=>{                       /* same name twice in the file: merge into one */
+    const key=c.name.trim().toLowerCase();
+    const prev=byName.get(key);
+    if(!prev){ byName.set(key,Object.assign({},c)); return; }
+    ["phone","email","link","birthday"].forEach(f=>{ if(!prev[f]&&c[f]) prev[f]=c[f]; });
+    if(c.notes&&prev.notes!==c.notes) prev.notes=[prev.notes,c.notes].filter(Boolean).join("\n");
+  });
+  impCards=[...byName.values()].map(c=>Object.assign(c,{dup:have.has(c.name.trim().toLowerCase())}));
+  const fresh=impCards.filter(c=>!c.dup).length, dups=impCards.length-fresh;
+  const preselect=fresh<=30;
+  impCards.forEach(c=>{ c.sel=preselect&&!c.dup; });
+  $("#impSum").textContent=impCards.length+" contacts in this file"
+    +(dups?(" · "+dups+" already in Touchpoint"):"")
+    +(preselect?"":" · nothing selected yet, since that’s a lot — search or tap Select all");
+  $("#impSearch").value=""; $("#impCadence").value="30"; impPicker.set([]);
+  impDraw(); openModal("#importModal");
+}
+$("#impSearch").addEventListener("input",impDraw);
+$("#impAll").addEventListener("click",()=>{
+  const q=$("#impSearch").value.trim().toLowerCase();
+  impCards.forEach(c=>{ if(!c.dup&&(!q||[c.name,c.phone,c.email].join(" ").toLowerCase().includes(q))) c.sel=true; });
+  impDraw();
+});
+$("#impNone").addEventListener("click",()=>{ impCards.forEach(c=>c.sel=false); impDraw(); });
+$("#impGo").addEventListener("click",()=>{
+  impPicker.commitPending();
+  const picked=impCards.filter(c=>c.sel&&!c.dup);
+  if(!picked.length)return;
+  const tags=impPicker.get(), cad=Number($("#impCadence").value);
+  picked.forEach(c=>{
+    data.people.push({id:uid(),createdAt:todayStr(),log:[],tags:tags.slice(),cadence:cad,lastContact:null,met:"",
+      name:c.name,phone:c.phone||"",email:c.email||"",link:c.link||"",birthday:c.birthday||null,notes:c.notes||""});
+  });
+  save(); closeModals(); render();
+  toast("Added "+picked.length+(picked.length===1?" person":" people")+(tags.length?" — tagged "+tags.join(", "):""));
+});
+
 function addFromContacts(list){
   const existing=new Set(data.people.map(p=>p.name.trim().toLowerCase()));
   let added=0, skipped=0;
@@ -970,7 +1092,7 @@ $("#vcfInput").addEventListener("change",async e=>{
     const cards=texts.flatMap(parseVcards);
     if(!cards.length){toast("No contacts found in that file");}
     else if(cards.length===1){openForm(null,cards[0]);}
-    else addFromContacts(cards);
+    else openImportReview(cards);
   }catch(err){console.warn(err);toast("Could not read that contact card");}
   e.target.value="";
 });
@@ -982,7 +1104,7 @@ if(navigator.contacts&&navigator.contacts.select&&window.ContactsManager){
       const cards=picked.map(c=>({name:(c.name&&c.name[0])||"",phone:(c.tel&&c.tel[0])||"",
         email:(c.email&&c.email[0])||"",link:"",birthday:null,notes:""})).filter(c=>c.name);
       if(!cards.length)return;
-      if(cards.length===1)openForm(null,cards[0]); else addFromContacts(cards);
+      if(cards.length===1)openForm(null,cards[0]); else openImportReview(cards);
     }catch(err){console.warn(err);}
   };
   $("#btnVcf").insertAdjacentElement("beforebegin",b);
