@@ -116,6 +116,30 @@ select.sel{padding:9px 10px;border:1px solid var(--border);border-radius:9px;bac
 .grp:first-child{margin-top:0}
 .grp .gc{color:var(--faint);font-weight:500}
 .grp::after{content:"";flex:1;height:1px;background:var(--border)}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:9px;overflow:hidden;background:var(--surface-2);flex:none}
+.seg button{border:0;background:transparent;padding:8px 13px;font:inherit;font-size:13px;color:var(--muted);cursor:pointer}
+.seg button.on{background:var(--surface);color:var(--text);font-weight:600;box-shadow:inset 0 0 0 1px var(--border)}
+.seg.wide{display:flex}.seg.wide button{flex:1}
+.star{font-size:16px;line-height:1;padding:4px 7px;color:var(--faint)}
+.star.on{color:var(--warn)}
+.card-actions .star{margin-left:auto}
+.grid.compact{display:block;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:var(--shadow);overflow:hidden}
+.grid.compact .grp{padding:7px 14px;margin:0;background:var(--surface-2);border-bottom:1px solid var(--border)}
+.grid.compact .grp::after{display:none}
+.lrow{display:flex;align-items:center;gap:10px;padding:9px 12px 9px 14px;border-bottom:1px solid var(--border)}
+.grid.compact > :last-child{border-bottom:none}
+.lrow .avatar{width:30px;height:30px;font-size:11.5px}
+.linfo{flex:1;min-width:0}
+.l1{display:flex;align-items:center;gap:8px;min-width:0}
+.l1 .nm{cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.l2{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;margin-top:1px}
+.l2 .cad{color:var(--faint);font-size:11.5px}
+.l2 .ph{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.ltags{display:flex;gap:4px;overflow:hidden;max-width:36%;flex:none}
+.bday-i{font-size:10.5px;color:var(--warn);background:var(--warn-soft);border-radius:999px;padding:1px 7px;font-weight:600;flex:none}
+.lrow .star{padding:4px 5px}
+@media (max-width:640px){.ltags{display:none}.l2 .cad{display:none}}
 .card-actions{display:flex;gap:6px;margin-top:2px;flex-wrap:wrap}
 .bday{position:absolute;top:12px;right:13px;font-size:11px;color:var(--warn);background:var(--warn-soft);
   border-radius:999px;padding:2px 8px;font-weight:600}
@@ -231,11 +255,13 @@ div.f > span.flabel{display:block;font-size:12px;color:var(--muted);margin-botto
     <div class="tb-row">
       <input class="search" id="search" type="search" placeholder="Search names, tags, notes...">
       <select class="sel" id="sort">
+        <option value="long">Sort: longest since</option>
+        <option value="next">Sort: next check-in</option>
         <option value="recent">Sort: most recent catch-up</option>
-        <option value="due">Sort: longest since</option>
         <option value="name">Sort: name</option>
         <option value="added">Sort: recently added</option>
       </select>
+      <div class="seg" id="viewSeg"><button type="button" data-v="cards">Cards</button><button type="button" data-v="list">List</button></div>
     </div>
     <div class="tagcloud" id="tagcloud"></div>
     <div class="filterbar" id="filterbar"></div>
@@ -285,8 +311,9 @@ div.f > span.flabel{display:block;font-size:12px;color:var(--muted);margin-botto
   <div class="foot">
     <button type="button" class="btn danger" id="btnDelete" hidden>Delete</button>
     <span style="flex:1"></span>
-    <button type="button" class="btn" data-close>Cancel</button>
-    <button type="submit" class="btn primary">Save</button>
+    <button type="button" class="btn" data-close id="btnFormCancel">Cancel</button>
+    <button type="button" class="btn" id="btnSkip" hidden>Skip</button>
+    <button type="submit" class="btn primary" id="btnFormSave">Save</button>
   </div></form>
 </div></div>
 
@@ -311,14 +338,19 @@ div.f > span.flabel{display:block;font-size:12px;color:var(--muted);margin-botto
   <div class="body">
     <p class="imp-sum" id="impSum"></p>
     <div class="f">
-      <span class="flabel">TAG EVERYONE YOU ADD</span>
+      <span class="flabel">HOW DO YOU WANT TO ADD THEM?</span>
+      <div class="seg wide" id="impMode"><button type="button" data-m="batch">All at once</button><button type="button" data-m="each">One by one</button></div>
+      <div class="hint" id="impModeHint"></div>
+    </div>
+    <div class="f">
+      <span class="flabel" id="impTagLabel">TAG EVERYONE YOU ADD</span>
       <div class="tagwrap">
         <div class="tagbox" id="impTagBox">
           <input id="impTagEntry" autocomplete="off" autocapitalize="off" enterkeyhint="done" placeholder="Pick or type a tag">
         </div>
         <div class="tagdrop" id="impTagDrop" hidden></div>
       </div>
-      <div class="hint">Optional. You can still change tags on each person later.</div>
+      <div class="hint" id="impTagHint">Optional. You can still change tags on each person later.</div>
     </div>
     <label class="f"><span>CHECK IN EVERY</span>
       <select id="impCadence">
@@ -345,6 +377,7 @@ div.f > span.flabel{display:block;font-size:12px;color:var(--muted);margin-botto
   <div class="body" id="dBody"></div>
   <div class="foot">
     <button class="btn" id="dEdit">Edit</button>
+    <button class="btn" id="dPin">Pin</button>
     <span style="flex:1"></span>
     <button class="btn primary" id="dLog">Catch up</button>
   </div>
@@ -370,8 +403,10 @@ const el=(t,c,x)=>{const n=document.createElement(t);if(c)n.className=c;if(x!=nu
 
 /* ---------- state ---------- */
 let data={version:1,people:[]};
-let activeTags=[], matchAll=false, query="", sortBy="recent";
-try{const sv=localStorage.getItem("touchpoint-sort");if(sv)sortBy=sv;}catch(e){}
+let activeTags=[], matchAll=false, query="", sortBy="long", viewMode="cards", queue=null;
+const SORTS=["long","next","recent","name","added"];
+try{const sv=localStorage.getItem("touchpoint-sort2");if(SORTS.includes(sv))sortBy=sv;}catch(e){}
+try{const vv=localStorage.getItem("touchpoint-view");if(vv==="list"||vv==="cards")viewMode=vv;}catch(e){}
 let editingId=null, logId=null, deleteArmed=false;
 
 function load(){
@@ -446,14 +481,16 @@ function visible(){
       .join(" ").toLowerCase().includes(q));
   }
   const sorters={
-    due:(a,b)=>{const sa=status(a),sb=status(b);
+    long:(a,b)=>{if(!a.lastContact!==!b.lastContact)return a.lastContact?-1:1;
+      return (a.lastContact||"").localeCompare(b.lastContact||"")||a.name.localeCompare(b.name);},
+    next:(a,b)=>{const sa=status(a),sb=status(b);
       const ra=sa.state==="off"?1e9:sa.remaining, rb=sb.state==="off"?1e9:sb.remaining;
       return ra-rb||a.name.localeCompare(b.name);},
     name:(a,b)=>a.name.localeCompare(b.name),
     recent:(a,b)=>(b.lastContact||"").localeCompare(a.lastContact||"")||a.name.localeCompare(b.name),
     added:(a,b)=>(b.createdAt||"").localeCompare(a.createdAt||"")||b.id.localeCompare(a.id)
   };
-  return list.sort(sorters[sortBy]||sorters.recent);
+  return list.sort(sorters[sortBy]||sorters.long);
 }
 
 /* ---------- render ---------- */
@@ -502,10 +539,50 @@ function card(p){
   const act=el("div","card-actions");
   const bl=el("button","btn sm primary","Catch up");bl.onclick=()=>openLog(p.id);
   const bd2=el("button","btn sm","Details");bd2.onclick=()=>openDetail(p.id);
-  act.appendChild(bl);act.appendChild(bd2);
+  act.appendChild(bl);act.appendChild(bd2);act.appendChild(starBtn(p));
   c.appendChild(act);
   return c;
 }
+function starBtn(p){
+  const s=el("button","btn sm ghost star"+(p.pinned?" on":""),p.pinned?"\u2605":"\u2606");
+  s.type="button";s.title=p.pinned?"Unpin":"Pin to top";s.setAttribute("aria-label",s.title);
+  s.onclick=()=>togglePin(p.id);return s;
+}
+function togglePin(id){
+  const p=data.people.find(x=>x.id===id);if(!p)return false;
+  if(p.pinned){delete p.pinned;toast("Unpinned "+p.name.split(/\s+/)[0]);}
+  else{
+    if(data.people.filter(x=>x.pinned).length>=5){toast("You can pin up to 5. Unpin someone first.");return false;}
+    p.pinned=Date.now();toast("Pinned "+p.name.split(/\s+/)[0]);
+  }
+  save();render();return true;
+}
+function rowItem(p){
+  const st=status(p), r=el("div","lrow"+(st.state==="due"?" due":""));
+  r.appendChild(el("div","avatar",initials(p.name)));
+  const info=el("div","linfo");
+  const l1=el("div","l1");
+  const nm=el("span","nm",p.name);nm.onclick=()=>openDetail(p.id);l1.appendChild(nm);
+  const bd=daysToBirthday(p.birthday);
+  if(bd!==null&&bd<=14)l1.appendChild(el("span","bday-i",bd===0?"Birthday today":"Bday in "+bd+"d"));
+  info.appendChild(l1);
+  const l2=el("div","l2");
+  l2.appendChild(el("span","dot "+(st.state==="off"?"off":st.state)));
+  const ph=st.since===null?"Nothing logged yet":st.state==="due"?"It's been "+span(st.since):"Caught up "+ago(st.since);
+  l2.appendChild(el("span","ph"+(st.state==="due"?" s-due":""),ph));
+  if(st.state!=="off")l2.appendChild(el("span","cad","\u00b7 every "+cadenceLabel(p.cadence)));
+  info.appendChild(l2);
+  r.appendChild(info);
+  if((p.tags||[]).length){const tw=el("div","ltags");
+    p.tags.forEach(t=>{const b=el("button","chip",t);b.type="button";b.onclick=()=>toggleTag(t);tw.appendChild(b);});
+    r.appendChild(tw);}
+  r.appendChild(starBtn(p));
+  const bl=el("button","btn sm primary","Catch up");bl.onclick=()=>openLog(p.id);r.appendChild(bl);
+  return r;
+}
+const item=p=>viewMode==="list"?rowItem(p):card(p);
+function groupHead(label,n){const h=el("div","grp");h.appendChild(el("span",null,label));
+  h.appendChild(el("span","gc",String(n)));return h;}
 function phrase(p,st){
   if(st.since===null)return"Nothing logged yet";
   if(st.state==="due")return"It's been "+span(st.since);
@@ -534,7 +611,8 @@ function render(){
   const dw=$("#dueWrap"), dg=$("#dueGrid");
   dg.innerHTML="";
   if(due.length){dw.hidden=false;$("#dueCount").textContent=due.length+(due.length===1?" person":" people");
-    due.forEach(p=>dg.appendChild(card(p)));}
+    dg.classList.toggle("compact",viewMode==="list");
+    due.forEach(p=>dg.appendChild(item(p)));}
   else dw.hidden=true;
 
   const tc=$("#tagcloud");tc.innerHTML="";
@@ -554,14 +632,21 @@ function render(){
     c.onclick=()=>{activeTags=[];render();};fb.appendChild(c);
   }
 
+  $("#sort").value=sortBy;
+  document.querySelectorAll("#viewSeg button").forEach(b=>b.classList.toggle("on",b.dataset.v===viewMode));
   const list=visible(), g=$("#grid");g.innerHTML="";
-  if(sortBy==="recent"&&list.length>1){
+  g.classList.toggle("compact",viewMode==="list");
+  const pins=list.filter(p=>p.pinned), rest=list.filter(p=>!p.pinned);
+  if(pins.length){g.appendChild(groupHead("\u2605 Pinned",pins.length));pins.forEach(p=>g.appendChild(item(p)));}
+  if((sortBy==="long"||sortBy==="recent")&&rest.length>1){
     let cur=null;
-    list.forEach(p=>{const b=bucket(p);
-      if(b!==cur){cur=b;const h=el("div","grp");h.appendChild(el("span",null,b));
-        h.appendChild(el("span","gc",String(list.filter(x=>bucket(x)===b).length)));g.appendChild(h);}
-      g.appendChild(card(p));});
-  }else list.forEach(p=>g.appendChild(card(p)));
+    rest.forEach(p=>{const b=bucket(p);
+      if(b!==cur){cur=b;g.appendChild(groupHead(b,rest.filter(x=>bucket(x)===b).length));}
+      g.appendChild(item(p));});
+  }else{
+    if(pins.length&&rest.length)g.appendChild(groupHead("Everyone else",rest.length));
+    rest.forEach(p=>g.appendChild(item(p)));
+  }
   $("#allCount").textContent=list.length===people.length?people.length+" total":list.length+" of "+people.length;
 
   const es=$("#emptyState");es.innerHTML="";
@@ -588,6 +673,8 @@ function toggleTag(t){
 function openModal(id){$(id).classList.add("open");document.body.style.overflow="hidden";}
 function closeModals(){document.querySelectorAll(".modal").forEach(m=>m.classList.remove("open"));
   document.body.style.overflow="";deleteArmed=false;
+  if(queue){const a=queue.added;queue=null;render();
+    toast(a?"Added "+a+(a===1?" person":" people")+", stopped there":"Stopped, no one added");}
   const d=$("#btnDelete");d.textContent="Delete";d.classList.remove("primary");}
 document.addEventListener("click",e=>{
   if(e.target.matches("[data-close]"))closeModals();
@@ -601,9 +688,15 @@ function openForm(id,prefill){
   const del=$("#btnDelete");del.textContent="Delete";del.hidden=!id;
   setPickerTags([]);
   $("#formTitle").textContent=id?"Edit person":(prefill?"Add "+(prefill.name||"person"):"Add person");
+  const q=queue&&!id?queue:null;
+  $("#btnSkip").hidden=!q;
+  $("#btnFormCancel").textContent=q?"Stop here":"Cancel";
+  $("#btnFormSave").textContent=q?(q.i+1<q.items.length?"Save & next":"Save & finish"):"Save";
+  if(q)$("#formTitle").textContent="Add "+(prefill.name||"person")+" \u00b7 "+(q.i+1)+" of "+q.items.length;
   if(prefill){
     f.name.value=prefill.name||"";
-    f.cadence.value="30";
+    f.cadence.value=prefill.cadence!=null?String(prefill.cadence):"30";
+    if(prefill.tags)setPickerTags(prefill.tags);
     f.phone.value=prefill.phone||"";f.email.value=prefill.email||"";f.link.value=prefill.link||"";
     f.birthday.value=prefill.birthday||"";f.notes.value=prefill.notes||"";
   }
@@ -630,6 +723,10 @@ $("#personForm").addEventListener("submit",e=>{
     link:f.link.value.trim(),birthday:f.birthday.value||null,met:f.met.value.trim(),notes:f.notes.value.trim()
   };
   if(!rec.name)return;
+  if(queue&&!editingId){
+    data.people.push(Object.assign({id:uid(),createdAt:todayStr(),log:[]},rec));
+    queue.added++;save();render();queueNext();return;
+  }
   if(editingId){
     const p=data.people.find(x=>x.id===editingId);Object.assign(p,rec);toast("Saved");
   }else{
@@ -644,6 +741,15 @@ $("#btnDelete").addEventListener("click",()=>{
   save();closeModals();render();toast("Deleted");
 });
 
+function queueShow(){const c=queue.items[queue.i];
+  openForm(null,Object.assign({},c,{tags:queue.tags.slice(),cadence:queue.cad}));}
+function queueNext(){
+  queue.i++;
+  if(queue.i<queue.items.length){queueShow();return;}
+  const a=queue.added,n=queue.items.length;queue=null;closeModals();render();
+  toast("Added "+a+(a===1?" person":" people")+(a<n?" ("+(n-a)+" skipped)":""));
+}
+$("#btnSkip").addEventListener("click",()=>{if(queue)queueNext();});
 function openLog(id){
   logId=id;
   const p=data.people.find(x=>x.id===id);
@@ -668,6 +774,7 @@ function openDetail(id){
   const p=data.people.find(x=>x.id===id);if(!p)return;
   logId=id;editingId=id;
   $("#dName").textContent=p.name;
+  $("#dPin").textContent=p.pinned?"\u2605 Pinned":"\u2606 Pin";
   const b=$("#dBody");b.innerHTML="";
   const st=status(p);
   const banner=el("div","statusline");banner.style.marginBottom="14px";
@@ -721,6 +828,8 @@ function openDetail(id){
   openModal("#detailModal");
 }
 $("#dEdit").addEventListener("click",()=>{const id=editingId;closeModals();openForm(id);});
+$("#dPin").addEventListener("click",()=>{const id=logId;if(togglePin(id)){const p=data.people.find(x=>x.id===id);
+  $("#dPin").textContent=p&&p.pinned?"\u2605 Pinned":"\u2606 Pin";}});
 $("#dLog").addEventListener("click",()=>{const id=logId;closeModals();openLog(id);});
 
 /* ---------- export / import ---------- */
@@ -1036,11 +1145,21 @@ function parseVcards(text){
   return out;
 }
 const impPicker=makeTagPicker($("#impTagBox"),$("#impTagEntry"),$("#impTagDrop"));
-let impCards=[];
+let impCards=[], impMode="batch";
+function impSetMode(m){impMode=m;
+  document.querySelectorAll("#impMode button").forEach(b=>b.classList.toggle("on",b.dataset.m===m));
+  $("#impModeHint").textContent=m==="each"
+    ?"You\u2019ll get each person\u2019s full profile, one at a time, to set tags, rhythm, birthday and notes."
+    :"Everyone you pick gets the same tags and check-in rhythm.";
+  $("#impTagLabel").textContent=m==="each"?"STARTING TAGS":"TAG EVERYONE YOU ADD";
+  $("#impTagHint").textContent=m==="each"?"Optional. These start filled in on each person, and you can change them as you go."
+    :"Optional. You can still change tags on each person later.";
+  impRefreshButton();}
+document.querySelectorAll("#impMode button").forEach(b=>b.addEventListener("click",()=>impSetMode(b.dataset.m)));
 function impSelectedCount(){ return impCards.filter(c=>c.sel&&!c.dup).length; }
 function impRefreshButton(){
   const n=impSelectedCount(), b=$("#impGo");
-  b.textContent=n?("Add "+n+(n===1?" person":" people")):"Add people";
+  b.textContent=!n?"Add people":impMode==="each"?("Go through "+n+(n===1?" person":" people")):("Add "+n+(n===1?" person":" people"));
   b.disabled=!n; b.style.opacity=n?"":".5";
 }
 function impDraw(){
@@ -1080,7 +1199,7 @@ function openImportReview(cards){
     +(dups?(" · "+dups+" already in Touchpoint"):"")
     +(preselect?"":" · nothing selected yet, since that’s a lot — search or tap Select all");
   $("#impSearch").value=""; $("#impCadence").value="30"; impPicker.set([]);
-  impDraw(); openModal("#importModal");
+  impSetMode("batch"); impDraw(); openModal("#importModal");
 }
 $("#impSearch").addEventListener("input",impDraw);
 $("#impAll").addEventListener("click",()=>{
@@ -1094,6 +1213,11 @@ $("#impGo").addEventListener("click",()=>{
   const picked=impCards.filter(c=>c.sel&&!c.dup);
   if(!picked.length)return;
   const tags=impPicker.get(), cad=Number($("#impCadence").value);
+  if(impMode==="each"){
+    closeModals();
+    queue={items:picked.map(c=>Object.assign({},c)),i:0,tags:tags,cad:cad,added:0};
+    queueShow();return;
+  }
   picked.forEach(c=>{
     data.people.push({id:uid(),createdAt:todayStr(),log:[],tags:tags.slice(),cadence:cad,lastContact:null,met:"",
       name:c.name,phone:c.phone||"",email:c.email||"",link:c.link||"",birthday:c.birthday||null,notes:c.notes||""});
@@ -1150,7 +1274,9 @@ function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("show"
 $("#btnAdd").addEventListener("click",()=>openForm());
 $("#search").addEventListener("input",e=>{query=e.target.value;render();});
 $("#sort").value=sortBy;
-$("#sort").addEventListener("change",e=>{sortBy=e.target.value;try{localStorage.setItem("touchpoint-sort",sortBy);}catch(_){}render();});
+$("#sort").addEventListener("change",e=>{sortBy=e.target.value;try{localStorage.setItem("touchpoint-sort2",sortBy);}catch(_){}render();});
+document.querySelectorAll("#viewSeg button").forEach(b=>b.addEventListener("click",()=>{
+  viewMode=b.dataset.v;try{localStorage.setItem("touchpoint-view",viewMode);}catch(_){}render();}));
 
 load();render();initCloud();
 window.Touchpoint={get data(){return data;},save:save,render:render};
